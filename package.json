@@ -1,0 +1,26 @@
+{
+  "name": "vue-headless-datepicker",
+  "version": "0.0.1",
+  "main": "dist/library.js",
+  "module": "dist/library.mjs",
+  "scripts": {
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@vue/test-utils": "^2.3.2",
+    "@vueuse/core": "^10.1.2",
+    "dayjs": "^1.11.8",
+    "rollup": "^3.25.0",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-vue": "^6.0.0",
+    "vue": "^3.2.29"
+  },
+  "peerDependencies": {
+    "vue": "^3.2.0"
+  },
+  "files": [
+    "dist/*"
+  ]
+}
