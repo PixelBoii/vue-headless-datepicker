@@ -1,6 +1,6 @@
 {
   "name": "vue-headless-datepicker",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "dist/library.js",
   "module": "dist/library.mjs",
   "scripts": {
