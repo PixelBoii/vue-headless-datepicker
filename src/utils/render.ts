@@ -17,7 +17,7 @@ export function render({ as: asComponent, props, children }: RenderOptions) {
             ...children[0].props,
         });
 
-        return h(Fragment, () => child);
+        return h(Fragment, [child]);
     } else {
         return h(asComponent, props, children);
     }
