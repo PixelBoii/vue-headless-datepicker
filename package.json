@@ -1,7 +1,7 @@
 {
   "name": "vue-headless-datepicker",
   "version": "0.0.3",
-  "main": "dist/library.js",
+  "main": "dist/library.cjs",
   "module": "dist/library.mjs",
   "scripts": {
     "build": "rollup -c",
@@ -24,5 +24,9 @@
   },
   "files": [
     "dist/*"
-  ]
+  ],
+  "exports": {
+    "import": "./dist/library.mjs",
+    "require": "./dist/library.cjs"
+  }
 }

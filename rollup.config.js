@@ -12,7 +12,7 @@ export default [
             },
             {
                 format: 'cjs',
-                file: 'dist/library.js',
+                file: 'dist/library.cjs',
             },
         ],
         plugins: [

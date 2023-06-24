@@ -98,10 +98,14 @@ export const DatePickerButton = defineComponent({
     setup(props, { slots }) {
         const context = inject(DatePickerContext);
 
-        return () => h(props.as === 'template' ? Fragment : props.as, {
-            type: 'button',
-            onClick: () => context.updatShowPanel(!context.showPanel.value),
-        }, slots.default());
+        return () => render({
+            as: props.as,
+            props: {
+                type: 'button',
+                onClick: () => context.updatShowPanel(!context.showPanel.value),
+            },
+            children: slots.default(),
+        });
     },
 });
 
