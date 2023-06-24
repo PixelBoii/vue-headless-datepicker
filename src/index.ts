@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import {
     Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
 } from 'vue';
-import { render } from './utils/render.ts';
+import { render } from './utils/render.js';
 
 const DatePickerContext = Symbol('DatePickerContext');
 

@@ -9,7 +9,6 @@
     "compilerOptions": {
         "esModuleInterop": true,
         "moduleResolution": "NodeNext",
-        "allowImportingTsExtensions": true,
         "lib": [
             "ESNext",
             "DOM",
