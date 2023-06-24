@@ -1,11 +1,36 @@
 import { onClickOutside, useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import {
-    computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
+    Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
 } from 'vue';
-import { render } from './utils/render';
+import { render } from './utils/render.ts';
 
 const DatePickerContext = Symbol('DatePickerContext');
+
+interface DatePickerContextView {
+    order: number;
+    autoNext: boolean;
+};
+
+interface DatePickerContext {
+    date: Ref<dayjs.Dayjs | null>;
+    view: Ref<DatePickerContextView | null>;
+    views: Ref<DatePickerContextView[]>;
+    viewDate: Ref<dayjs.Dayjs>;
+    showPanel: Ref<boolean>;
+    activeDate: Ref<dayjs.Dayjs | null>;
+    panelRef: Ref<HTMLElement>;
+    buttonRef: Ref<HTMLElement>;
+    updateDate: (value: dayjs.Dayjs) => void;
+    updateViewDate: (value: dayjs.Dayjs) => void;
+    addView: (value: DatePickerContextView) => void;
+    removeView: (value: number) => void;
+    updateView: (value: DatePickerContextView) => void;
+    prevViewMonth: () => void;
+    nextViewMonth: () => void;
+    updatShowPanel: (value: boolean) => void;
+    updateActiveDate: (value: dayjs.Dayjs) => void;
+};
 
 export const DatePicker = defineComponent({
     name: 'DatePicker',
@@ -17,15 +42,15 @@ export const DatePicker = defineComponent({
     },
     emits: ['update:modelValue'],
     setup(props, { emit, slots }) {
-        const containerRef = ref(null);
-        const view = ref(null);
-        const views = ref([]);
-        const showPanel = ref(false);
-        const date = ref(props.modelValue ? dayjs(props.modelValue) : dayjs());
-        const activeDate = ref(null);
-        const viewDate = ref(dayjs(date.value.startOf('month')));
-        const panelRef = ref(null);
-        const buttonRef = ref(null);
+        const containerRef: Ref<HTMLElement | null> = ref(null);
+        const view: Ref<DatePickerContextView | null> = ref(null);
+        const views: Ref<DatePickerContextView[]> = ref([]);
+        const showPanel: Ref<boolean> = ref(false);
+        const date: Ref<dayjs.Dayjs | null> = ref(props.modelValue ? dayjs(props.modelValue) : dayjs());
+        const activeDate: Ref<dayjs.Dayjs | null> = ref(null);
+        const viewDate: Ref<dayjs.Dayjs | null> = ref(dayjs(date.value.startOf('month')));
+        const panelRef: Ref<HTMLElement | null> = ref(null);
+        const buttonRef: Ref<HTMLElement | null> = ref(null);
 
         function nextView() {
             const nextView = views.value.find(e => e.order === view.value.order + 1);
@@ -33,7 +58,7 @@ export const DatePicker = defineComponent({
             view.value = nextView ? nextView : (views.value[0] ?? null);
         }
 
-        const context = {
+        const context: DatePickerContext = {
             date,
             view,
             views,
@@ -68,7 +93,7 @@ export const DatePicker = defineComponent({
         };
 
         onClickOutside(containerRef, () => {
-            view.value = 0;
+            view.value = null;
             showPanel.value = false;
         });
 
@@ -100,7 +125,7 @@ export const DatePickerButton = defineComponent({
         },
     },
     setup(props, { expose, slots }) {
-        const context = inject(DatePickerContext);
+        const context: DatePickerContext = inject(DatePickerContext);
 
         expose({ el: context.buttonRef, $el: context.buttonRef });
 
@@ -119,13 +144,13 @@ export const DatePickerButton = defineComponent({
 export const DatePickerPanel = defineComponent({
     name: 'DatePickerPanel',
     setup(_, { slots }) {
-        const context = inject(DatePickerContext);
+        const context: DatePickerContext = inject(DatePickerContext);
 
         const daysInCurrentMonth = computed(() => Array.from({ length: 35 }, (_, i) => {
             return context.viewDate.value.startOf('week').add(i, 'day');
         }));
 
-        function adjustActive(event, amount, unit) {
+        function adjustActive(event: Event, amount: number, unit: dayjs.ManipulateType) {
             if (!context.activeDate.value) {
                 context.updateActiveDate(context.date.value);
             }
@@ -147,29 +172,30 @@ export const DatePickerPanel = defineComponent({
             event.preventDefault();
         }
 
-        useEventListener('wheel', (e) => {
+        useEventListener('wheel', (e: WheelEvent) => {
             if (!context.showPanel.value) {
                 return;
             }
 
             const panel = context.panelRef.value;
+            const target = e.target as HTMLElement;
 
             if (!panel) {
                 return;
             }
 
-            if (e.target.isSameNode(panel) || panel.contains(e.target)) {
-                if (e.deltaY < 0 && e.target.scrollTop === 0) {
+            if (target.isSameNode(panel) || panel.contains(target)) {
+                if (e.deltaY < 0 && target.scrollTop === 0) {
                     context.prevViewMonth();
                 }
 
-                if (e.deltaY > 0 && e.target.scrollTop === e.target.scrollHeight - e.target.clientHeight) {
+                if (e.deltaY > 0 && target.scrollTop === target.scrollHeight - target.clientHeight) {
                     context.nextViewMonth();
                 }
             }
         });
 
-        useEventListener('keydown', (event) => {
+        useEventListener('keydown', (event: KeyboardEvent) => {
             if (!context.showPanel.value) {
                 return;
             }
@@ -224,7 +250,7 @@ export const DatePickerCalendarItem = defineComponent({
         },
     },
     setup(props, { expose, slots }) {
-        const context = inject(DatePickerContext);
+        const context: DatePickerContext = inject(DatePickerContext);
 
         const itemRef = ref(null);
 
@@ -272,7 +298,7 @@ export const DatePickerView = defineComponent({
         },
     },
     setup(props, { slots }) {
-        const context = inject(DatePickerContext);
+        const context: DatePickerContext = inject(DatePickerContext);
 
         onMounted(() => {
             context.addView({

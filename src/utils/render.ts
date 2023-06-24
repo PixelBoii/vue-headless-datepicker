@@ -1,6 +1,12 @@
-import { Fragment, cloneVNode, h } from "vue";
+import { Fragment, cloneVNode, h } from 'vue';
 
-export function render({ as: asComponent, props, children }) {
+interface RenderOptions {
+    as: string | Record<string, any>;
+    props: Record<string, any>;
+    children: any[];
+}
+
+export function render({ as: asComponent, props, children }: RenderOptions) {
     if (asComponent === 'template') {
         if (children.length !== 1) {
             throw new Error('Template can only have one child');
@@ -11,8 +17,8 @@ export function render({ as: asComponent, props, children }) {
             ...children[0].props,
         });
 
-        return h(Fragment, {}, child);
+        return h(Fragment, () => child);
     } else {
         return h(asComponent, props, children);
     }
-}
+};
