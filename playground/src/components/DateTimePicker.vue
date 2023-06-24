@@ -11,7 +11,7 @@ const date = ref(dayjs());
 <template>
     <DatePicker
         v-model="date"
-        v-slot="{ prevViewMonth, nextViewMonth, viewDate, date, updateDate }"
+        v-slot="{ prevViewMonth, nextViewMonth, viewDate, date }"
     >
         <DatePickerButton class="bg-indigo-500 text-white font-semibold rounded-lg px-3 py-2">
             {{ date.format('YYYY-MM-DD HH:mm') }}
@@ -27,7 +27,7 @@ const date = ref(dayjs());
         >
             <DatePickerPanel
                 class="absolute mt-2 px-3 py-2 bg-indigo-200 rounded-lg overflow-hidden w-96"
-                v-slot="{ daysInCurrentMonth }"
+                v-slot="{ daysInCurrentMonth, hoursInCurrentDay, minutesInCurrentHour }"
             >
                 <div class="flex justify-between py-1 px-2">
                     <button
@@ -51,6 +51,7 @@ const date = ref(dayjs());
 
                 <DatePickerView
                     class="grid grid-cols-7 gap-1"
+                    view-role="calendar-month"
                     :order="0"
                 >
                     <DatePickerCalendarItem
@@ -78,31 +79,31 @@ const date = ref(dayjs());
                     :auto-next="false"
                 >
                     <div class="h-72 overflow-y-auto">
-                        <div
-                            v-for="hour in 24"
-                            :key="`hour-${hour}`"
-                            class="p-3 hover:bg-indigo-300 rounded-lg"
+                        <DatePickerCalendarItem
+                            v-for="hour in hoursInCurrentDay"
+                            :key="`hour-${hour.format('HH')}`"
+                            class="p-3 hover:bg-indigo-300 rounded-lg w-full"
                             :class="{
-                                'bg-indigo-300': date.hour() === hour - 1,
+                                'bg-indigo-300': viewDate.isSame(hour, 'hour')
                             }"
-                            @click="updateDate(date.hour(hour - 1))"
+                            :value="hour"
                         >
-                            {{ hour - 1 }}
-                        </div>
+                            {{ hour.format('HH') }}
+                        </DatePickerCalendarItem>
                     </div>
 
                     <div class="h-72 overflow-y-auto">
-                        <div
-                            v-for="minute in 60"
-                            :key="`minute-${minute}`"
-                            class="py-2 px-6 hover:bg-indigo-300 rounded-lg"
+                        <DatePickerCalendarItem
+                            v-for="minute in minutesInCurrentHour"
+                            :key="`minute-${minute.format('mm')}`"
+                            class="py-2 px-6 hover:bg-indigo-300 rounded-lg w-full"
                             :class="{
-                                'bg-indigo-300': date.minute() === minute,
+                                'bg-indigo-300': viewDate.isSame(minute, 'minute')
                             }"
-                            @click="updateDate(date.minute(minute))"
+                            :value="minute"
                         >
-                            {{ minute }}
-                        </div>
+                            {{ minute.format('mm') }}
+                        </DatePickerCalendarItem>
                     </div>
                 </DatePickerView>
             </DatePickerPanel>

@@ -1,7 +1,7 @@
 import { onClickOutside, useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import {
-    Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
+    PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
 } from 'vue';
 import { render } from './utils/render.js';
 
@@ -32,6 +32,12 @@ interface DatePickerContext {
     updateActiveDate: (value: dayjs.Dayjs) => void;
 };
 
+const DatePickerViewRole = {
+    CALENDAR_YEAR: 'calendar-year',
+    CALENDAR_MONTH: 'calendar-month',
+    TIME: 'time',
+};
+
 export const DatePicker = defineComponent({
     name: 'DatePicker',
     props: {
@@ -48,7 +54,7 @@ export const DatePicker = defineComponent({
         const showPanel: Ref<boolean> = ref(false);
         const date: Ref<dayjs.Dayjs | null> = ref(props.modelValue ? dayjs(props.modelValue) : dayjs());
         const activeDate: Ref<dayjs.Dayjs | null> = ref(null);
-        const viewDate: Ref<dayjs.Dayjs | null> = ref(dayjs(date.value.startOf('month')));
+        const viewDate: Ref<dayjs.Dayjs | null> = ref(dayjs(date.value));
         const panelRef: Ref<HTMLElement | null> = ref(null);
         const buttonRef: Ref<HTMLElement | null> = ref(null);
 
@@ -69,6 +75,7 @@ export const DatePicker = defineComponent({
             buttonRef,
             updateDate: (value) => {
                 date.value = value;
+                viewDate.value = value;
                 activeDate.value = value;
                 emit('update:modelValue', value);
 
@@ -147,7 +154,15 @@ export const DatePickerPanel = defineComponent({
         const context: DatePickerContext = inject(DatePickerContext);
 
         const daysInCurrentMonth = computed(() => Array.from({ length: 35 }, (_, i) => {
-            return context.viewDate.value.startOf('week').add(i, 'day');
+            return context.viewDate.value.startOf('month').startOf('week').add(i, 'day');
+        }));
+
+        const hoursInCurrentDay = computed(() => Array.from({ length: 24 }, (_, i) => {
+            return context.viewDate.value.startOf('day').add(i, 'hour');
+        }));
+
+        const minutesInCurrentHour = computed(() => Array.from({ length: 60 }, (_, i) => {
+            return context.viewDate.value.startOf('hour').add(i, 'minute');
         }));
 
         function adjustActive(event: Event, amount: number, unit: dayjs.ManipulateType) {
@@ -171,29 +186,6 @@ export const DatePickerPanel = defineComponent({
             context.updateActiveDate(newDate);
             event.preventDefault();
         }
-
-        useEventListener('wheel', (e: WheelEvent) => {
-            if (!context.showPanel.value) {
-                return;
-            }
-
-            const panel = context.panelRef.value;
-            const target = e.target as HTMLElement;
-
-            if (!panel) {
-                return;
-            }
-
-            if (target.isSameNode(panel) || panel.contains(target)) {
-                if (e.deltaY < 0 && target.scrollTop === 0) {
-                    context.prevViewMonth();
-                }
-
-                if (e.deltaY > 0 && target.scrollTop === target.scrollHeight - target.clientHeight) {
-                    context.nextViewMonth();
-                }
-            }
-        });
 
         useEventListener('keydown', (event: KeyboardEvent) => {
             if (!context.showPanel.value) {
@@ -232,6 +224,8 @@ export const DatePickerPanel = defineComponent({
                 ref: context.panelRef,
             }, slots.default({
                 daysInCurrentMonth: daysInCurrentMonth.value,
+                hoursInCurrentDay: hoursInCurrentDay.value,
+                minutesInCurrentHour: minutesInCurrentHour.value,
             })) :
             null;
     },
@@ -293,12 +287,21 @@ export const DatePickerView = defineComponent({
             default: null,
         },
         autoNext: {
-            type: Boolean,
-            default: true,
+            type: Boolean as PropType<boolean>,
+            default: true as boolean,
+        },
+        viewRole: {
+            type: String as PropType<typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null>,
+            default: null as typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null,
+            validator: (value: typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null) => Object.values(DatePickerViewRole).includes(value),
         },
     },
     setup(props, { slots }) {
         const context: DatePickerContext = inject(DatePickerContext);
+
+        const viewRef = ref(null);
+
+        const shouldShow = computed(() => context.view.value?.order === props.order && context.showPanel.value);
 
         onMounted(() => {
             context.addView({
@@ -307,12 +310,58 @@ export const DatePickerView = defineComponent({
             });
         });
 
+        function prevPeriod() {
+            if (props.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
+                context.viewDate.value = context.viewDate.value.subtract(1, 'month');
+            }
+
+            if (props.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
+                context.viewDate.value = context.viewDate.value.subtract(1, 'year');
+            }
+        }
+
+        function nextPeriod() {
+            if (props.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
+                context.viewDate.value = context.viewDate.value.add(1, 'month');
+            }
+
+            if (props.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
+                context.viewDate.value = context.viewDate.value.add(1, 'year');
+            }
+        }
+
+        if (props.viewRole) {
+            useEventListener('wheel', (e: WheelEvent) => {
+                if (!shouldShow.value) {
+                    return;
+                }
+
+                const target = e.target as HTMLElement;
+
+                if (!viewRef.value) {
+                    return;
+                }
+
+                if (target.isSameNode(viewRef.value) || viewRef.value.contains(target)) {
+                    if (e.deltaY < 0 && target.scrollTop === 0) {
+                        prevPeriod();
+                    }
+
+                    if (e.deltaY > 0 && target.scrollTop === target.scrollHeight - target.clientHeight) {
+                        nextPeriod();
+                    }
+                }
+            });
+        }
+
         onBeforeUnmount(() => {
             context.removeView(props.order);
         });
 
-        return () => context.view.value?.order === props.order ?
-            h('div', slots.default()) :
+        return () => shouldShow.value ?
+            h('div', {
+                ref: viewRef,
+            }, slots.default()) :
             null;
     },
 });
