@@ -1,7 +1,7 @@
 import { onClickOutside, useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import {
-    Fragment, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
+    computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
 } from 'vue';
 import { render } from './utils/render';
 
@@ -24,6 +24,8 @@ export const DatePicker = defineComponent({
         const date = ref(props.modelValue ? dayjs(props.modelValue) : dayjs());
         const activeDate = ref(null);
         const viewDate = ref(dayjs(date.value.startOf('month')));
+        const panelRef = ref(null);
+        const buttonRef = ref(null);
 
         function nextView() {
             const nextView = views.value.find(e => e.order === view.value.order + 1);
@@ -38,6 +40,8 @@ export const DatePicker = defineComponent({
             viewDate,
             showPanel,
             activeDate,
+            panelRef,
+            buttonRef,
             updateDate: (value) => {
                 date.value = value;
                 activeDate.value = value;
@@ -95,12 +99,15 @@ export const DatePickerButton = defineComponent({
             default: 'button',
         },
     },
-    setup(props, { slots }) {
+    setup(props, { expose, slots }) {
         const context = inject(DatePickerContext);
+
+        expose({ el: context.buttonRef, $el: context.buttonRef });
 
         return () => render({
             as: props.as,
             props: {
+                ref: context.buttonRef,
                 type: 'button',
                 onClick: () => context.updatShowPanel(!context.showPanel.value),
             },
@@ -140,6 +147,28 @@ export const DatePickerPanel = defineComponent({
             event.preventDefault();
         }
 
+        useEventListener('wheel', (e) => {
+            if (!context.showPanel.value) {
+                return;
+            }
+
+            const panel = context.panelRef.value;
+
+            if (!panel) {
+                return;
+            }
+
+            if (e.target.isSameNode(panel) || panel.contains(e.target)) {
+                if (e.deltaY < 0 && e.target.scrollTop === 0) {
+                    context.prevViewMonth();
+                }
+
+                if (e.deltaY > 0 && e.target.scrollTop === e.target.scrollHeight - e.target.clientHeight) {
+                    context.nextViewMonth();
+                }
+            }
+        });
+
         useEventListener('keydown', (event) => {
             if (!context.showPanel.value) {
                 return;
@@ -173,7 +202,9 @@ export const DatePickerPanel = defineComponent({
         });
 
         return () => context.showPanel.value ?
-            h('div', slots.default({
+            h('div', {
+                ref: context.panelRef,
+            }, slots.default({
                 daysInCurrentMonth: daysInCurrentMonth.value,
             })) :
             null;
@@ -192,15 +223,32 @@ export const DatePickerCalendarItem = defineComponent({
             default: 'button',
         },
     },
-    setup(props, { slots }) {
+    setup(props, { expose, slots }) {
         const context = inject(DatePickerContext);
+
+        const itemRef = ref(null);
 
         const selected = computed(() => context.date.value.isSame(props.value, 'day'));
         const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
 
+        expose({ el: itemRef, $el: itemRef });
+
+        watch(selected, () => {
+            if (selected.value) {
+                itemRef.value.focus();
+            }
+        });
+
+        watch(active, () => {
+            if (active.value) {
+                itemRef.value.focus();
+            }
+        });
+
         return () => render({
             as: props.as,
             props: {
+                ref: itemRef,
                 onClick: () => context.updateDate(props.value),
             },
             children: slots.default({
