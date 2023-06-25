@@ -1,9 +1,12 @@
 import { onClickOutside, useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 import {
     PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
 } from 'vue';
 import { render } from './utils/render.js';
+
+dayjs.extend(customParseFormat);
 
 const DatePickerContext = Symbol('DatePickerContext');
 
@@ -21,6 +24,7 @@ interface DatePickerContext {
     activeDate: Ref<dayjs.Dayjs | null>;
     panelRef: Ref<HTMLElement>;
     buttonRef: Ref<HTMLElement>;
+    inputRef: Ref<HTMLElement>;
     updateDate: (value: dayjs.Dayjs) => void;
     updateViewDate: (value: dayjs.Dayjs) => void;
     addView: (value: DatePickerContextView) => void;
@@ -28,7 +32,7 @@ interface DatePickerContext {
     updateView: (value: DatePickerContextView) => void;
     prevViewMonth: () => void;
     nextViewMonth: () => void;
-    updatShowPanel: (value: boolean) => void;
+    updateShowPanel: (value: boolean) => void;
     updateActiveDate: (value: dayjs.Dayjs) => void;
 };
 
@@ -37,6 +41,14 @@ const DatePickerViewRole = {
     CALENDAR_MONTH: 'calendar-month',
     TIME: 'time',
 };
+
+const DatePickerFormat = {
+    DATE: 'YYYY-MM-DD',
+    TIME: 'HH:mm',
+    DATE_TIME: 'YYYY-MM-DD HH:mm',
+};
+
+type DatePickerFormats = 'YYYY-MM-DD' | 'HH:mm' | 'YYYY-MM-DD HH:mm';
 
 export const DatePicker = defineComponent({
     name: 'DatePicker',
@@ -57,6 +69,7 @@ export const DatePicker = defineComponent({
         const viewDate: Ref<dayjs.Dayjs | null> = ref(dayjs(date.value));
         const panelRef: Ref<HTMLElement | null> = ref(null);
         const buttonRef: Ref<HTMLElement | null> = ref(null);
+        const inputRef: Ref<HTMLElement | null> = ref(null);
 
         function nextView() {
             const nextView = views.value.find(e => e.order === view.value.order + 1);
@@ -73,7 +86,8 @@ export const DatePicker = defineComponent({
             activeDate,
             panelRef,
             buttonRef,
-            updateDate: (value) => {
+            inputRef,
+            updateDate: (value: dayjs.Dayjs | null) => {
                 date.value = value;
                 viewDate.value = value;
                 activeDate.value = value;
@@ -95,7 +109,7 @@ export const DatePicker = defineComponent({
             updateView: (value) => view.value = value,
             prevViewMonth: () => viewDate.value = viewDate.value.subtract(1, 'month'),
             nextViewMonth: () => viewDate.value = viewDate.value.add(1, 'month'),
-            updatShowPanel: (value) => showPanel.value = value,
+            updateShowPanel: (value) => showPanel.value = value,
             updateActiveDate: (value) => activeDate.value = value,
         };
 
@@ -141,9 +155,164 @@ export const DatePickerButton = defineComponent({
             props: {
                 ref: context.buttonRef,
                 type: 'button',
-                onClick: () => context.updatShowPanel(!context.showPanel.value),
+                onClick: () => context.updateShowPanel(!context.showPanel.value),
             },
             children: slots.default(),
+        });
+    },
+});
+
+export const DatePickerInput = defineComponent({
+    name: 'DatePickerInput',
+    props: {
+        as: {
+            type: [String, Object],
+            default: 'input',
+        },
+        format: {
+            type: String as PropType<DatePickerFormats | null>,
+            default: DatePickerFormat.DATE_TIME as DatePickerFormats | null,
+            validator: (value: DatePickerFormats | null) => Object.values(DatePickerFormat).includes(value),
+        },
+    },
+    setup(props, { expose, slots }) {
+        const context: DatePickerContext = inject(DatePickerContext);
+
+        const input = ref('');
+        const shouldStartOver = ref(false);
+        const editing = ref(false);
+
+        const placeholder = computed(() => props.format.replaceAll(/[a-zA-Z]/g, 'X'));
+        const inputFormat = computed(() => props.format.replaceAll(' ', '').replaceAll('-', '').replaceAll(':', ''));
+        const isInvalid = computed(() => !dateIsValid.value && input.value.length > 0);
+
+        const inputWithPlaceholder = computed(() => {
+            let finalStr = '';
+            let inputIndex = 0;
+
+            for (let placeholderIndex = 0; placeholderIndex < placeholder.value.length; placeholderIndex++) {
+                let placeholderChar = placeholder.value[placeholderIndex];
+
+                if (placeholderChar === ' ' || placeholderChar === '-' || placeholderChar === ':') {
+                    finalStr += placeholderChar;
+                    continue;
+                }
+
+                if (input.value[inputIndex]) {
+                    finalStr += input.value[inputIndex];
+                } else {
+                    finalStr += placeholderChar;
+                }
+
+                inputIndex++;
+            }
+
+            return finalStr;
+        });
+
+        const dateIsValid = computed(() => {
+            const dates = [];
+
+            if (props.format === DatePickerFormat.DATE_TIME) {
+                const dateAndTime = dayjs(input.value, 'YYYYMMDDHHmm', true);
+                const dateAndHours = dayjs(input.value, 'YYYYMMDDHH', true);
+
+                dates.push(dateAndTime, dateAndHours);
+            }
+
+            if (props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME) {
+                const date = dayjs(input.value, 'YYYYMMDD', true);
+                const dateAndMonth = dayjs(input.value, 'YYYYMM', true);
+                const yearDate = dayjs(input.value, 'YYYY', true);
+
+                dates.push(date, dateAndMonth, yearDate);
+            }
+
+            if (props.format === DatePickerFormat.TIME) {
+                const time = dayjs(input.value, 'HHmm', true);
+                const hours = dayjs(input.value, 'HH', true);
+
+                dates.push(time, hours);
+            }
+
+            const validDate = dates.find(date => date.isValid());
+
+            return validDate;
+        });
+
+        expose({ el: context.inputRef, $el: context.inputRef });
+
+        watch(context.date, () => {
+            if (context.date.value && !editing.value) {
+                input.value = context.date.value.format(inputFormat.value);
+                shouldStartOver.value = true;
+            }
+        });
+
+        return () => render({
+            as: props.as,
+            props: {
+                ref: context.inputRef,
+                type: 'text',
+                value: inputWithPlaceholder.value,
+                style: {
+                    caretColor: 'transparent',
+                },
+                ariaInvalid: isInvalid.value,
+                onClick: () => context.updateShowPanel(true),
+                onBlur: () => {
+                    editing.value = false;
+
+                    if (dateIsValid.value) {
+                        input.value = dateIsValid.value.format(inputFormat.value);
+                    } else {
+                        shouldStartOver.value = true;
+                    }
+                },
+                onKeydown: (event: KeyboardEvent) => {
+                    if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    if (shouldStartOver.value || (!editing.value && event.key === 'Backspace')) {
+                        input.value = '';
+                    }
+
+                    shouldStartOver.value = false;
+                    editing.value = true;
+
+                    if (event.key === 'Backspace') {
+                        input.value = input.value.slice(0, -1);
+                        return;
+                    }
+
+                    if (event.key === 'Escape') {
+                        context.updateShowPanel(false);
+                        shouldStartOver.value = true;
+                        editing.value = false;
+                    }
+
+                    if (event.key === 'Enter') {
+                        if (dateIsValid.value) {
+                            context.updateDate(dateIsValid.value);
+                        }
+
+                        context.updateShowPanel(false);
+                        shouldStartOver.value = true;
+                        editing.value = false;
+                    }
+
+                    if (event.key.match(/[0-9]/) && input.value.length < 12) {
+                        input.value += event.key;
+                    }
+
+                    if (dateIsValid.value) {
+                        context.updateDate(dateIsValid.value);
+                    }
+                },
+            },
         });
     },
 });
@@ -193,7 +362,7 @@ export const DatePickerPanel = defineComponent({
             }
 
             if (event.key === 'Escape') {
-                context.updatShowPanel(false);
+                context.updateShowPanel(false);
                 event.preventDefault();
             }
 
@@ -251,16 +420,21 @@ export const DatePickerCalendarItem = defineComponent({
         const selected = computed(() => context.date.value.isSame(props.value, 'day'));
         const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
 
+        const focusingOnTrigger = computed(() => 
+            document.activeElement?.isSameNode(context.buttonRef.value) ||
+            document.activeElement?.isSameNode(context.inputRef.value)
+        );
+
         expose({ el: itemRef, $el: itemRef });
 
         watch(selected, () => {
-            if (selected.value) {
+            if (selected.value && !focusingOnTrigger.value) {
                 itemRef.value.focus();
             }
         });
 
         watch(active, () => {
-            if (active.value) {
+            if (active.value && !focusingOnTrigger.value) {
                 itemRef.value.focus();
             }
         });
