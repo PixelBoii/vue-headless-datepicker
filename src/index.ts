@@ -230,8 +230,10 @@ export const DatePickerInput = defineComponent({
             }
 
             if (props.format === DatePickerFormat.TIME) {
-                const time = dayjs(input.value, 'HHmm', true);
-                const hours = dayjs(input.value, 'HH', true);
+                const baseDate = context.date.value.format('YYYYMMDD');
+
+                const time = dayjs(`${baseDate}${input.value}`, 'YYYYMMDDHHmm', true);
+                const hours = dayjs(`${baseDate}${input.value}`, 'YYYYMMDDHH', true);
 
                 dates.push(time, hours);
             }
