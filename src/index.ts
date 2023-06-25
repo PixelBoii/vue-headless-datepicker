@@ -178,12 +178,13 @@ export const DatePickerInput = defineComponent({
     setup(props, { expose, slots }) {
         const context: DatePickerContext = inject(DatePickerContext);
 
-        const input = ref('');
-        const shouldStartOver = ref(false);
-        const editing = ref(false);
-
         const placeholder = computed(() => props.format.replaceAll(/[a-zA-Z]/g, 'X'));
         const inputFormat = computed(() => props.format.replaceAll(' ', '').replaceAll('-', '').replaceAll(':', ''));
+
+        const input = ref(context.date.value?.format(inputFormat.value) ?? '');
+        const shouldStartOver = ref(true);
+        const editing = ref(false);
+
         const isInvalid = computed(() => !dateIsValid.value && input.value.length > 0);
 
         const inputWithPlaceholder = computed(() => {
