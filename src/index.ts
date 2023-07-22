@@ -2,7 +2,7 @@ import { onClickOutside, useEventListener } from '@vueuse/core';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 import {
-    PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onMounted, provide, ref, watch,
+    PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onBeforeMount, provide, ref, watch, nextTick,
 } from 'vue';
 import { render } from './utils/render.js';
 
@@ -10,9 +10,24 @@ dayjs.extend(customParseFormat);
 
 const DatePickerContext = Symbol('DatePickerContext');
 
+const DatePickerViewRole = {
+    CALENDAR_YEAR: 'calendar-year',
+    CALENDAR_MONTH: 'calendar-month',
+    TIME: 'time',
+};
+
+const DatePickerFormat = {
+    DATE: 'YYYY-MM-DD',
+    TIME: 'HH:mm',
+    DATE_TIME: 'YYYY-MM-DD HH:mm',
+};
+
+type DatePickerViewRoles = 'calendar-year' | 'calendar-month' | 'time';
+
 interface DatePickerContextView {
     order: number;
     autoNext: boolean;
+    viewRole: DatePickerViewRoles;
 };
 
 interface DatePickerContext {
@@ -28,24 +43,13 @@ interface DatePickerContext {
     updateDate: (value: dayjs.Dayjs) => void;
     updateViewDate: (value: dayjs.Dayjs) => void;
     addView: (value: DatePickerContextView) => void;
+    nextView: () => void;
     removeView: (value: number) => void;
     updateView: (value: DatePickerContextView) => void;
     prevViewMonth: () => void;
     nextViewMonth: () => void;
     updateShowPanel: (value: boolean) => void;
     updateActiveDate: (value: dayjs.Dayjs) => void;
-};
-
-const DatePickerViewRole = {
-    CALENDAR_YEAR: 'calendar-year',
-    CALENDAR_MONTH: 'calendar-month',
-    TIME: 'time',
-};
-
-const DatePickerFormat = {
-    DATE: 'YYYY-MM-DD',
-    TIME: 'HH:mm',
-    DATE_TIME: 'YYYY-MM-DD HH:mm',
 };
 
 type DatePickerFormats = 'YYYY-MM-DD' | 'HH:mm' | 'YYYY-MM-DD HH:mm';
@@ -92,10 +96,6 @@ export const DatePicker = defineComponent({
                 viewDate.value = value;
                 activeDate.value = value;
                 emit('update:modelValue', value);
-
-                if (view.value?.autoNext) {
-                    nextView();
-                }
             },
             updateViewDate: (value) => viewDate.value = value,
             addView: (value) => {
@@ -105,6 +105,7 @@ export const DatePicker = defineComponent({
 
                 views.value.push(value);
             },
+            nextView,
             removeView: (value) => views.value = views.value.filter(view => view.order !== value),
             updateView: (value) => view.value = value,
             prevViewMonth: () => viewDate.value = viewDate.value.subtract(1, 'month'),
@@ -262,7 +263,33 @@ export const DatePickerInput = defineComponent({
                     caretColor: 'transparent',
                 },
                 ariaInvalid: isInvalid.value,
-                onClick: () => context.updateShowPanel(true),
+                onClick: async () => {
+                    context.updateShowPanel(true);
+
+                    await nextTick();
+
+                    if (props.format === DatePickerFormat.TIME) {
+                        const timeView = context.views.value.find(view => view.viewRole === DatePickerViewRole.TIME);
+
+                        if (timeView) {
+                            context.updateView(timeView);
+                        }
+                    }
+
+                    if (props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME) {
+                        const calendarView = context.views.value.find(view => view.viewRole === DatePickerViewRole.CALENDAR_MONTH);
+
+                        if (calendarView) {
+                            context.updateView(calendarView);
+                        }
+
+                        const backupView = context.views.value.find(view => view.viewRole === DatePickerViewRole.CALENDAR_YEAR);
+
+                        if (backupView) {
+                            context.updateView(backupView);
+                        }
+                    }
+                },
                 onBlur: () => {
                     editing.value = false;
 
@@ -273,7 +300,7 @@ export const DatePickerInput = defineComponent({
                     }
                 },
                 onKeydown: (event: KeyboardEvent) => {
-                    if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+                    if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || event.key === 'Tab') {
                         return;
                     }
 
@@ -300,9 +327,14 @@ export const DatePickerInput = defineComponent({
                     if (event.key === 'Enter') {
                         if (dateIsValid.value) {
                             context.updateDate(dateIsValid.value);
+
+                            if (context.view.value?.autoNext) {
+                                context.nextView();
+                            } else {
+                                context.updateShowPanel(false);
+                            }
                         }
 
-                        context.updateShowPanel(false);
                         shouldStartOver.value = true;
                         editing.value = false;
                     }
@@ -388,6 +420,10 @@ export const DatePickerPanel = defineComponent({
             if (event.key === 'Enter' || event.key === ' ') {
                 context.updateDate(context.activeDate.value);
                 event.preventDefault();
+
+                if (context.view.value?.autoNext) {
+                    context.nextView();
+                }
             }
         });
 
@@ -423,30 +459,19 @@ export const DatePickerCalendarItem = defineComponent({
         const selected = computed(() => context.date.value.isSame(props.value, 'day'));
         const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
 
-        const focusingOnTrigger = computed(() => 
-            document.activeElement?.isSameNode(context.buttonRef.value) ||
-            document.activeElement?.isSameNode(context.inputRef.value)
-        );
-
         expose({ el: itemRef, $el: itemRef });
-
-        watch(selected, () => {
-            if (selected.value && !focusingOnTrigger.value) {
-                itemRef.value.focus();
-            }
-        });
-
-        watch(active, () => {
-            if (active.value && !focusingOnTrigger.value) {
-                itemRef.value.focus();
-            }
-        });
 
         return () => render({
             as: props.as,
             props: {
                 ref: itemRef,
-                onClick: () => context.updateDate(props.value),
+                onClick: () => {
+                    context.updateDate(props.value);
+
+                    if (context.view.value?.autoNext) {
+                        context.nextView();
+                    }
+                },
             },
             children: slots.default({
                 selected: selected.value,
@@ -468,9 +493,9 @@ export const DatePickerView = defineComponent({
             default: true as boolean,
         },
         viewRole: {
-            type: String as PropType<typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null>,
-            default: null as typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null,
-            validator: (value: typeof DatePickerViewRole[keyof typeof DatePickerViewRole] | null) => Object.values(DatePickerViewRole).includes(value),
+            type: String as PropType<DatePickerViewRoles | null>,
+            default: null as DatePickerViewRoles | null,
+            validator: (value: DatePickerViewRoles | null) => Object.values(DatePickerViewRole).includes(value),
         },
     },
     setup(props, { slots }) {
@@ -480,10 +505,11 @@ export const DatePickerView = defineComponent({
 
         const shouldShow = computed(() => context.view.value?.order === props.order && context.showPanel.value);
 
-        onMounted(() => {
+        onBeforeMount(() => {
             context.addView({
                 order: props.order,
                 autoNext: props.autoNext,
+                viewRole: props.viewRole,
             });
         });
 
