@@ -12,10 +12,17 @@ const date = ref(null);
         v-model="date"
         v-slot="{ prevViewMonth, nextViewMonth, viewDate, date }"
     >
-        <DatePickerInput
-            class="bg-indigo-500 text-white font-semibold rounded-lg px-3 py-2"
-            format="YYYY-MM-DD HH:mm"
-        />
+        <div class="flex items-center space-x-2">
+            <DatePickerInput
+                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-white w-36"
+                format="YYYY-MM-DD"
+            />
+
+            <DatePickerInput
+                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-white w-24"
+                format="HH:mm"
+            />
+        </div>
 
         <Transition
             enter-active-class="transition ease-out duration-200"
