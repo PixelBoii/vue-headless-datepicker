@@ -4,6 +4,7 @@ import DatePicker from './components/DatePicker.vue';
 import DateTimePickerWithMultipleInputs from './components/DateTimePickerWithMultipleInputs.vue';
 import BasicDatePicker from './components/BasicDatePicker.vue';
 import BasicDatePickerWithInput from './components/BasicDatePickerWithInput.vue';
+import DatePickerWithInputWithoutValue from './components/DatePickerWithInputWithoutValue.vue';
 </script>
 
 <template>
@@ -13,6 +14,8 @@ import BasicDatePickerWithInput from './components/BasicDatePickerWithInput.vue'
         <DatePicker />
 
         <DateTimePickerWithMultipleInputs />
+
+        <DatePickerWithInputWithoutValue />
 
         <BasicDatePicker />
 

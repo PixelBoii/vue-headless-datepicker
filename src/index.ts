@@ -68,9 +68,9 @@ export const DatePicker = defineComponent({
         const view: Ref<DatePickerContextView | null> = ref(null);
         const views: Ref<DatePickerContextView[]> = ref([]);
         const showPanel: Ref<boolean> = ref(false);
-        const date: Ref<dayjs.Dayjs | null> = ref(props.modelValue ? dayjs(props.modelValue) : dayjs());
+        const date: Ref<dayjs.Dayjs | null> = ref(props.modelValue ? dayjs(props.modelValue) : null);
         const activeDate: Ref<dayjs.Dayjs | null> = ref(null);
-        const viewDate: Ref<dayjs.Dayjs | null> = ref(dayjs(date.value));
+        const viewDate: Ref<dayjs.Dayjs | null> = ref(date.value ? dayjs(date.value) : dayjs());
         const panelRef: Ref<HTMLElement | null> = ref(null);
         const buttonRef: Ref<HTMLElement | null> = ref(null);
         const inputRef: Ref<HTMLElement | null> = ref(null);
@@ -228,6 +228,15 @@ export const DatePickerInput = defineComponent({
                 const yearDate = dayjs(input.value, 'YYYY', true);
 
                 dates.push(date, dateAndMonth, yearDate);
+
+                // If the date is complete and valid, switch the view to the time view
+                if (date.isValid()) {
+                    const timeView = context.views.value.find(view => view.viewRole === DatePickerViewRole.TIME);
+
+                    if (timeView) {
+                        context.updateView(timeView);
+                    }
+                }
             }
 
             if (props.format === DatePickerFormat.TIME) {
@@ -456,7 +465,7 @@ export const DatePickerCalendarItem = defineComponent({
 
         const itemRef = ref(null);
 
-        const selected = computed(() => context.date.value.isSame(props.value, 'day'));
+        const selected = computed(() => context.date.value?.isSame(props.value, 'day') ?? false);
         const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
 
         expose({ el: itemRef, $el: itemRef });
