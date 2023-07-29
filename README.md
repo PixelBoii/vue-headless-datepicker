@@ -20,14 +20,14 @@ npm i vue-headless-datepicker
 
 ## Usage
 
-The styling is entirely up to you, but this simple example should show the basics of how the package is meant to work. For more examples, you can look in the `playground` folder.
+The styling is entirely up to you, but this simple example should show the basics of how the package is meant to work. For more examples, you can look in the `src/stories` folder.
 
 Note: This example uses tailwindcss, which is a separate package you'd need to install. The component work just fine with regular CSS as well, though.
 
 ```vue
 <script setup>
 import {
-    DatePicker, DatePickerButton, DatePickerCalendarItem, DatePickerPanel,
+    DatePicker, DatePickerButton, DatePickerCalendarItem, DatePickerPanel, DatePickerNavButton,
 } from 'vue-headless-datepicker';
 import dayjs from 'dayjs';
 import { ref } from 'vue';
@@ -38,7 +38,7 @@ const date = ref(dayjs());
 <template>
     <DatePicker
         v-model="date"
-        v-slot="{ prevViewMonth, nextViewMonth, viewDate, date }"
+        v-slot="{ viewDate, date }"
     >
         <DatePickerButton class="bg-indigo-500 text-white font-semibold rounded-lg px-3 py-2">
             {{ date.format('YYYY-MM-DD HH:mm') }}
@@ -49,23 +49,23 @@ const date = ref(dayjs());
             v-slot="{ daysInCurrentMonth }"
         >
             <div class="flex justify-between py-1 px-2">
-                <button
+                <DatePickerNavButton
                     class="text-sm"
-                    @click="prevViewMonth"
+                    direction="backward"
                 >
                     Prev
-                </button>
+                </DatePickerNavButton>
 
                 <div>
                     {{ viewDate.format('YYYY-MM') }}
                 </div>
 
-                <button
+                <DatePickerNavButton
                     class="text-sm"
-                    @click="nextViewMonth"
+                    direction="forward"
                 >
                     Next
-                </button>
+                </DatePickerNavButton>
             </div>
 
             <div class="grid grid-cols-7 gap-1">
@@ -91,6 +91,16 @@ const date = ref(dayjs());
     </DatePicker>
 </template>
 ```
+
+## Storybook
+
+The examples available in the `src/stories` folder are also available as a storybook. You can run it by cloning the repository and running the below command:
+
+```sh
+npm run storybook
+```
+
+From there, storybook should be available at `http://localhost:6006` in your browser. If the port is already in use, another port may be used instead.
 
 ## Contributing
 

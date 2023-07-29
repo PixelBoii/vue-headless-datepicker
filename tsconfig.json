@@ -1,6 +1,7 @@
 {
     "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "src/**/*.vue"
     ],
     "exclude": [
         "node_modules",
@@ -14,5 +15,10 @@
             "DOM",
             "DOM.Iterable"
         ],
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ]
+        }
     }
 }

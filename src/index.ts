@@ -50,6 +50,8 @@ interface DatePickerContext {
     nextViewMonth: () => void;
     updateShowPanel: (value: boolean) => void;
     updateActiveDate: (value: dayjs.Dayjs) => void;
+    prevViewPeriod: () => void;
+    nextViewPeriod: () => void;
 };
 
 type DatePickerFormats = 'YYYY-MM-DD' | 'HH:mm' | 'YYYY-MM-DD HH:mm';
@@ -112,6 +114,26 @@ export const DatePicker = defineComponent({
             nextViewMonth: () => viewDate.value = viewDate.value.add(1, 'month'),
             updateShowPanel: (value) => showPanel.value = value,
             updateActiveDate: (value) => activeDate.value = value,
+            prevViewPeriod() {
+                if (!view.value || view.value.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
+                    viewDate.value = viewDate.value.subtract(1, 'month');
+                    return;
+                }
+    
+                if (view.value.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
+                    viewDate.value = viewDate.value.subtract(1, 'year');
+                }
+            },
+            nextViewPeriod() {
+                if (!view.value || view.value.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
+                    viewDate.value = viewDate.value.add(1, 'month');
+                    return;
+                }
+    
+                if (view.value.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
+                    viewDate.value = viewDate.value.add(1, 'year');
+                }
+            }
         };
 
         onClickOutside(containerRef, () => {
@@ -186,7 +208,7 @@ export const DatePickerInput = defineComponent({
         const shouldStartOver = ref(true);
         const editing = ref(false);
 
-        const isInvalid = computed(() => !dateIsValid.value && input.value.length > 0);
+        const isInvalid = computed(() => !dateIsValid() && input.value.length > 0);
 
         const inputWithPlaceholder = computed(() => {
             let finalStr = '';
@@ -212,22 +234,29 @@ export const DatePickerInput = defineComponent({
             return finalStr;
         });
 
-        const dateIsValid = computed(() => {
-            const dates = [];
+        function getValidDates(allowPartial: boolean) {
+            const dates: dayjs.Dayjs[] = [];
 
             if (props.format === DatePickerFormat.DATE_TIME) {
                 const dateAndTime = dayjs(input.value, 'YYYYMMDDHHmm', true);
-                const dateAndHours = dayjs(input.value, 'YYYYMMDDHH', true);
+                dates.push(dateAndTime);
 
-                dates.push(dateAndTime, dateAndHours);
+                if (allowPartial) {
+                    const dateAndHours = dayjs(input.value, 'YYYYMMDDHH', true);
+                    dates.push(dateAndHours);
+                }
             }
 
             if (props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME) {
                 const date = dayjs(input.value, 'YYYYMMDD', true);
-                const dateAndMonth = dayjs(input.value, 'YYYYMM', true);
-                const yearDate = dayjs(input.value, 'YYYY', true);
+                dates.push(date);
 
-                dates.push(date, dateAndMonth, yearDate);
+                if (allowPartial) {
+                    const dateAndMonth = dayjs(input.value, 'YYYYMM', true);
+                    const yearDate = dayjs(input.value, 'YYYY', true);
+
+                    dates.push(dateAndMonth, yearDate);
+                }
 
                 // If the date is complete and valid, switch the view to the time view
                 if (date.isValid()) {
@@ -244,15 +273,20 @@ export const DatePickerInput = defineComponent({
                 const baseDateFormat = baseDate.format('YYYYMMDD');
 
                 const time = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHHmm', true);
-                const hours = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHH', true);
+                dates.push(time);
 
-                dates.push(time, hours);
+                if (allowPartial) {
+                    const hours = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHH', true);
+                    dates.push(hours);
+                }
             }
 
-            const validDate = dates.find(date => date.isValid());
+            return dates;
+        }
 
-            return validDate;
-        });
+        const dateIsValid = () => getValidDates(true).find(date => date.isValid());
+
+        const dateIsValidAndComplete = () => getValidDates(false).find(date => date.isValid());
 
         expose({ el: context.inputRef, $el: context.inputRef });
 
@@ -303,8 +337,9 @@ export const DatePickerInput = defineComponent({
                 onBlur: () => {
                     editing.value = false;
 
-                    if (dateIsValid.value) {
-                        input.value = dateIsValid.value.format(inputFormat.value);
+                    if (dateIsValid()) {
+                        context.updateDate(dateIsValid());
+                        input.value = dateIsValid().format(inputFormat.value);
                     } else {
                         shouldStartOver.value = true;
                     }
@@ -315,6 +350,24 @@ export const DatePickerInput = defineComponent({
                     }
 
                     event.preventDefault();
+
+                    if (event.key === 'Enter') {
+                        const validDate = dateIsValid();
+
+                        if (validDate) {
+                            context.updateDate(validDate);
+
+                            if (context.view.value?.autoNext) {
+                                context.nextView();
+                            } else {
+                                context.updateShowPanel(false);
+                            }
+                        }
+
+                        shouldStartOver.value = true;
+                        editing.value = false;
+                        return;
+                    }
 
                     if (shouldStartOver.value || (!editing.value && event.key === 'Backspace')) {
                         input.value = '';
@@ -334,27 +387,14 @@ export const DatePickerInput = defineComponent({
                         editing.value = false;
                     }
 
-                    if (event.key === 'Enter') {
-                        if (dateIsValid.value) {
-                            context.updateDate(dateIsValid.value);
-
-                            if (context.view.value?.autoNext) {
-                                context.nextView();
-                            } else {
-                                context.updateShowPanel(false);
-                            }
-                        }
-
-                        shouldStartOver.value = true;
-                        editing.value = false;
-                    }
-
                     if (event.key.match(/[0-9]/) && input.value.length < 12) {
                         input.value += event.key;
                     }
 
-                    if (dateIsValid.value) {
-                        context.updateDate(dateIsValid.value);
+                    const validAndCompleteDate = dateIsValidAndComplete();
+
+                    if (validAndCompleteDate) {
+                        context.updateDate(validAndCompleteDate);
                     }
                 },
             },
@@ -426,15 +466,6 @@ export const DatePickerPanel = defineComponent({
             if (event.key === 'ArrowDown') {
                 adjustActive(event, 1, 'week');
             }
-
-            if (event.key === 'Enter' || event.key === ' ') {
-                context.updateDate(context.activeDate.value);
-                event.preventDefault();
-
-                if (context.view.value?.autoNext) {
-                    context.nextView();
-                }
-            }
         });
 
         return () => context.showPanel.value ?
@@ -464,12 +495,24 @@ export const DatePickerCalendarItem = defineComponent({
     setup(props, { expose, slots }) {
         const context: DatePickerContext = inject(DatePickerContext);
 
-        const itemRef = ref(null);
+        const itemRef: Ref<HTMLElement | null> = ref(null);
 
         const selected = computed(() => context.date.value?.isSame(props.value, 'day') ?? false);
         const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
 
         expose({ el: itemRef, $el: itemRef });
+
+        watch(active, () => {
+            if (active.value && itemRef.value) {
+                itemRef.value.focus();
+            }
+        });
+
+        useEventListener(itemRef, 'focus', () => {
+            if (itemRef.value) {
+                context.updateActiveDate(props.value);
+            }
+        });
 
         return () => render({
             as: props.as,
@@ -523,26 +566,6 @@ export const DatePickerView = defineComponent({
             });
         });
 
-        function prevPeriod() {
-            if (props.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
-                context.viewDate.value = context.viewDate.value.subtract(1, 'month');
-            }
-
-            if (props.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
-                context.viewDate.value = context.viewDate.value.subtract(1, 'year');
-            }
-        }
-
-        function nextPeriod() {
-            if (props.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
-                context.viewDate.value = context.viewDate.value.add(1, 'month');
-            }
-
-            if (props.viewRole === DatePickerViewRole.CALENDAR_YEAR) {
-                context.viewDate.value = context.viewDate.value.add(1, 'year');
-            }
-        }
-
         if (props.viewRole) {
             useEventListener('wheel', (e: WheelEvent) => {
                 if (!shouldShow.value) {
@@ -557,11 +580,11 @@ export const DatePickerView = defineComponent({
 
                 if (target.isSameNode(viewRef.value) || viewRef.value.contains(target)) {
                     if (e.deltaY < 0 && target.scrollTop === 0) {
-                        prevPeriod();
+                        context.prevViewPeriod();
                     }
 
                     if (e.deltaY > 0 && target.scrollTop === target.scrollHeight - target.clientHeight) {
-                        nextPeriod();
+                        context.nextViewPeriod();
                     }
                 }
             });
@@ -577,4 +600,44 @@ export const DatePickerView = defineComponent({
             }, slots.default()) :
             null;
     },
+});
+
+export const DatePickerNavButton = defineComponent({
+    name: 'DatePickerNavButton',
+    props: {
+        as: {
+            type: [String, Object],
+            default: 'button',
+        },
+        direction: {
+            type: String as PropType<'backward' | 'forward'>,
+            required: true,
+        },
+    },
+    setup(props, { expose, slots }) {
+        const context: DatePickerContext = inject(DatePickerContext);
+
+        const buttonRef: Ref<HTMLElement | null> = ref(null);
+
+        expose({ el: buttonRef, $el: buttonRef });
+
+        function handleMove() {
+            if (props.direction === 'backward') {
+                context.prevViewPeriod();
+            }
+
+            if (props.direction === 'forward') {
+                context.nextViewPeriod();
+            }
+        }
+
+        return () => render({
+            as: props.as,
+            props: {
+                ref: buttonRef,
+                onClick: handleMove,
+            },
+            children: slots.default(),
+        });
+    }
 });

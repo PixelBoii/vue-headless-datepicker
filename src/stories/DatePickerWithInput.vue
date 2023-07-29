@@ -1,21 +1,29 @@
-<script setup>
+<script lang="ts" setup>
 import {
-    DatePicker, DatePickerButton, DatePickerCalendarItem, DatePickerPanel,
-} from 'vue-headless-datepicker';
+    DatePicker, DatePickerInput, DatePickerCalendarItem, DatePickerPanel, DatePickerNavButton,
+} from '../index.js';
 import dayjs from 'dayjs';
 import { ref } from 'vue';
 
-const date = ref(dayjs());
+const props = defineProps({
+    date: {
+        type: String,
+        default: '2021-01-01 12:00',
+    },
+});
+
+const date = ref(props.date ? dayjs(props.date) : null);
 </script>
 
 <template>
     <DatePicker
         v-model="date"
-        v-slot="{ prevViewMonth, nextViewMonth, viewDate, date }"
+        v-slot="{ viewDate, date }"
     >
-        <DatePickerButton class="bg-indigo-500 text-white font-semibold rounded-lg px-3 py-2">
-            {{ date.format('YYYY-MM-DD HH:mm') }}
-        </DatePickerButton>
+        <DatePickerInput
+            class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-white"
+            format="YYYY-MM-DD"
+        />
 
         <Transition
             enter-active-class="transition ease-out duration-200"
@@ -26,27 +34,27 @@ const date = ref(dayjs());
             leave-to-class="opacity-0 scale-95"
         >
             <DatePickerPanel
-                class="absolute mt-2 px-3 py-2 bg-indigo-200 rounded-lg overflow-hidden w-96"
+                class="absolute mt-2 px-3 py-2 bg-indigo-200 rounded-lg overflow-hidden"
                 v-slot="{ daysInCurrentMonth }"
             >
                 <div class="flex justify-between py-1 px-2">
-                    <button
+                    <DatePickerNavButton
                         class="text-sm"
-                        @click="prevViewMonth"
+                        direction="backward"
                     >
                         Prev
-                    </button>
+                    </DatePickerNavButton>
 
                     <div>
                         {{ viewDate.format('YYYY-MM') }}
                     </div>
 
-                    <button
+                    <DatePickerNavButton
                         class="text-sm"
-                        @click="nextViewMonth"
+                        direction="forward"
                     >
                         Next
-                    </button>
+                    </DatePickerNavButton>
                 </div>
 
                 <div class="grid grid-cols-7 gap-1">

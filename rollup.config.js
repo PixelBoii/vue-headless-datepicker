@@ -25,6 +25,9 @@ export default [
             }),
             typescript({
                 tsconfig: './tsconfig.json',
+                exclude: [
+                    './src/stories/*',
+                ],
                 outDir: './dist',
                 declaration: true,
                 declarationDir: './dist/types',

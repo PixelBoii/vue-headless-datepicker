@@ -1,16 +1,24 @@
-<script setup>
+<script lang="ts" setup>
 import {
-    DatePicker, DatePickerInput, DatePickerCalendarItem, DatePickerPanel, DatePickerView,
-} from 'vue-headless-datepicker';
+    DatePicker, DatePickerInput, DatePickerView, DatePickerCalendarItem, DatePickerPanel, DatePickerNavButton
+} from '../index.js';
+import dayjs from 'dayjs';
 import { ref } from 'vue';
 
-const date = ref(null);
+const props = defineProps({
+    date: {
+        type: String,
+        default: '2021-01-01 12:00',
+    },
+});
+
+const date = ref(props.date ? dayjs(props.date) : null);
 </script>
 
 <template>
     <DatePicker
         v-model="date"
-        v-slot="{ prevViewMonth, nextViewMonth, viewDate, date }"
+        v-slot="{ viewDate }"
     >
         <div class="flex items-center space-x-2">
             <DatePickerInput
@@ -36,48 +44,49 @@ const date = ref(null);
                 class="absolute mt-2 px-3 py-2 bg-indigo-200 rounded-lg overflow-hidden w-96"
                 v-slot="{ daysInCurrentMonth, hoursInCurrentDay, minutesInCurrentHour }"
             >
-                <div class="flex justify-between py-1 px-2">
-                    <button
-                        class="text-sm"
-                        @click="prevViewMonth"
-                    >
-                        Prev
-                    </button>
-
-                    <div>
-                        {{ viewDate.format('YYYY-MM') }}
-                    </div>
-
-                    <button
-                        class="text-sm"
-                        @click="nextViewMonth"
-                    >
-                        Next
-                    </button>
-                </div>
-
                 <DatePickerView
-                    class="grid grid-cols-7 gap-1"
                     view-role="calendar-month"
                     :order="0"
                 >
-                    <DatePickerCalendarItem
-                        v-for="day in daysInCurrentMonth"
-                        :key="day.format('YYYY-MM-DD')"
-                        :value="day"
-                        as="template"
-                        v-slot="{ selected, active }"
-                    >
-                        <button
-                            class="p-3 hover:bg-indigo-300 rounded-lg"
-                            :class="{
-                                'bg-indigo-300': selected || active,
-                                'text-gray-500': !viewDate.isSame(day, 'month') && !selected,
-                            }"
+                    <div class="flex justify-between py-1 px-2">
+                        <DatePickerNavButton
+                            class="text-sm"
+                            direction="backward"
                         >
-                            {{ day.format('DD') }}
-                        </button>
-                    </DatePickerCalendarItem>
+                            Prev
+                        </DatePickerNavButton>
+
+                        <div>
+                            {{ viewDate.format('YYYY-MM') }}
+                        </div>
+
+                        <DatePickerNavButton
+                            class="text-sm"
+                            direction="forward"
+                        >
+                            Next
+                        </DatePickerNavButton>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1">
+                        <DatePickerCalendarItem
+                            v-for="day in daysInCurrentMonth"
+                            :key="day.format('YYYY-MM-DD')"
+                            :value="day"
+                            as="template"
+                            v-slot="{ selected, active }"
+                        >
+                            <button
+                                class="p-3 hover:bg-indigo-300 rounded-lg focus:outline-none"
+                                :class="{
+                                    'bg-indigo-300': selected || active,
+                                    'text-gray-500': !viewDate.isSame(day, 'month') && !selected,
+                                }"
+                            >
+                                {{ day.format('DD') }}
+                            </button>
+                        </DatePickerCalendarItem>
+                    </div>
                 </DatePickerView>
 
                 <DatePickerView
