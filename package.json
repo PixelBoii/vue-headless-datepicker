@@ -4,6 +4,10 @@
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "typings": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PixelBoii/vue-headless-datepicker.git"
+  },
   "scripts": {
     "build": "rollup -c",
     "build:watch": "rollup -c -w",
