@@ -41,6 +41,9 @@ export const Input: Story = {
         // Click enter to close the picker
         await userEvent.type(input, '{enter}');
 
+        // Wait for the picker to close
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         // Make sure it is closed
         await expect(
             canvas.queryByText('2021-01'),

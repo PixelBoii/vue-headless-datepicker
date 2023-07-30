@@ -61,3 +61,29 @@ export const WithoutValue: Story = {
         ).toHaveValue('XX:XX');
     },
 };
+
+export const AddsZeroAutomatically: Story = {
+    play: async ({ canvasElement }: any) => {
+        const canvas = within(canvasElement);
+        const input1 = await canvas.getAllByRole('textbox')[0];
+        const input2 = await canvas.getAllByRole('textbox')[1];
+
+        // Type the date
+        await userEvent.type(input1, '2021-01-07');
+
+        // Type the time
+        await userEvent.type(input2, '3:40');
+
+        // Click enter to close the picker
+        await userEvent.type(input2, '{enter}');
+
+        // Make sure the inputs have the correct text
+        await expect(
+            input1,
+        ).toHaveValue('2021-01-07');
+
+        await expect(
+            input2,
+        ).toHaveValue('03:40');
+    },
+};

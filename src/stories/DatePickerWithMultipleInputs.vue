@@ -22,12 +22,12 @@ const date = ref(props.date ? dayjs(props.date) : null);
     >
         <div class="flex items-center space-x-2">
             <DatePickerInput
-                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-white w-36"
+                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-indigo-300 w-36"
                 format="YYYY-MM-DD"
             />
 
             <DatePickerInput
-                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-white w-24"
+                class="bg-indigo-500 border-2 border-transparent text-white font-semibold rounded-lg px-3 py-2 aria-[invalid=true]:border-red-500 focus:outline-none focus:ring focus:ring-indigo-300 w-24"
                 format="HH:mm"
             />
         </div>

@@ -38,8 +38,14 @@ interface DatePickerContext {
     showPanel: Ref<boolean>;
     activeDate: Ref<dayjs.Dayjs | null>;
     panelRef: Ref<HTMLElement>;
-    buttonRef: Ref<HTMLElement>;
-    inputRef: Ref<HTMLElement>;
+    triggerRefs: {
+        button: Ref<HTMLElement | null>;
+        inputs: {
+            'YYYY-MM-DD': Ref<HTMLElement | null>;
+            'HH:mm': Ref<HTMLElement | null>;
+            'YYYY-MM-DD HH:mm': Ref<HTMLElement | null>;
+        };
+    };
     updateDate: (value: dayjs.Dayjs) => void;
     updateViewDate: (value: dayjs.Dayjs) => void;
     addView: (value: DatePickerContextView) => void;
@@ -74,8 +80,15 @@ export const DatePicker = defineComponent({
         const activeDate: Ref<dayjs.Dayjs | null> = ref(null);
         const viewDate: Ref<dayjs.Dayjs | null> = ref(date.value ? dayjs(date.value) : dayjs());
         const panelRef: Ref<HTMLElement | null> = ref(null);
-        const buttonRef: Ref<HTMLElement | null> = ref(null);
-        const inputRef: Ref<HTMLElement | null> = ref(null);
+
+        const triggerRefs: DatePickerContext['triggerRefs'] = {
+            button: ref(null),
+            inputs: {
+                'YYYY-MM-DD': ref(null),
+                'HH:mm': ref(null),
+                'YYYY-MM-DD HH:mm': ref(null),
+            },
+        };
 
         function nextView() {
             const nextView = views.value.find(e => e.order === view.value.order + 1);
@@ -91,8 +104,7 @@ export const DatePicker = defineComponent({
             showPanel,
             activeDate,
             panelRef,
-            buttonRef,
-            inputRef,
+            triggerRefs,
             updateDate: (value: dayjs.Dayjs | null) => {
                 date.value = value;
                 viewDate.value = value;
@@ -171,12 +183,12 @@ export const DatePickerButton = defineComponent({
     setup(props, { expose, slots }) {
         const context: DatePickerContext = inject(DatePickerContext);
 
-        expose({ el: context.buttonRef, $el: context.buttonRef });
+        expose({ el: context.triggerRefs.button, $el: context.triggerRefs.button });
 
         return () => render({
             as: props.as,
             props: {
-                ref: context.buttonRef,
+                ref: context.triggerRefs.button,
                 type: 'button',
                 onClick: () => context.updateShowPanel(!context.showPanel.value),
             },
@@ -198,7 +210,7 @@ export const DatePickerInput = defineComponent({
             validator: (value: DatePickerFormats | null) => Object.values(DatePickerFormat).includes(value),
         },
     },
-    setup(props, { expose, slots }) {
+    setup(props, { expose }) {
         const context: DatePickerContext = inject(DatePickerContext);
 
         const placeholder = computed(() => props.format.replaceAll(/[a-zA-Z]/g, 'X'));
@@ -208,7 +220,7 @@ export const DatePickerInput = defineComponent({
         const shouldStartOver = ref(true);
         const editing = ref(false);
 
-        const isInvalid = computed(() => !dateIsValid() && input.value.length > 0);
+        const isInvalid = computed(() => !anyDateIsValid() && input.value.length > 0);
 
         const inputWithPlaceholder = computed(() => {
             let finalStr = '';
@@ -234,61 +246,76 @@ export const DatePickerInput = defineComponent({
             return finalStr;
         });
 
-        function getValidDates(allowPartial: boolean) {
+        function getValidDateTimes(allowPartial: boolean) {
             const dates: dayjs.Dayjs[] = [];
 
-            if (props.format === DatePickerFormat.DATE_TIME) {
-                const dateAndTime = dayjs(input.value, 'YYYYMMDDHHmm', true);
-                dates.push(dateAndTime);
+            const dateAndTime = dayjs(input.value, 'YYYYMMDDHHmm', true);
+            dates.push(dateAndTime);
 
-                if (allowPartial) {
-                    const dateAndHours = dayjs(input.value, 'YYYYMMDDHH', true);
-                    dates.push(dateAndHours);
-                }
-            }
-
-            if (props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME) {
-                const date = dayjs(input.value, 'YYYYMMDD', true);
-                dates.push(date);
-
-                if (allowPartial) {
-                    const dateAndMonth = dayjs(input.value, 'YYYYMM', true);
-                    const yearDate = dayjs(input.value, 'YYYY', true);
-
-                    dates.push(dateAndMonth, yearDate);
-                }
-
-                // If the date is complete and valid, switch the view to the time view
-                if (date.isValid()) {
-                    const timeView = context.views.value.find(view => view.viewRole === DatePickerViewRole.TIME);
-
-                    if (timeView) {
-                        context.updateView(timeView);
-                    }
-                }
-            }
-
-            if (props.format === DatePickerFormat.TIME) {
-                const baseDate = context.date.value ?? dayjs();
-                const baseDateFormat = baseDate.format('YYYYMMDD');
-
-                const time = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHHmm', true);
-                dates.push(time);
-
-                if (allowPartial) {
-                    const hours = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHH', true);
-                    dates.push(hours);
-                }
+            if (allowPartial) {
+                const dateAndHours = dayjs(input.value, 'YYYYMMDDHH', true);
+                dates.push(dateAndHours);
             }
 
             return dates;
         }
 
-        const dateIsValid = () => getValidDates(true).find(date => date.isValid());
+        function getValidDates(allowPartial: boolean) {
+            const dates = [];
 
-        const dateIsValidAndComplete = () => getValidDates(false).find(date => date.isValid());
+            const date = dayjs(input.value, 'YYYYMMDD', true);
+            dates.push(date);
 
-        expose({ el: context.inputRef, $el: context.inputRef });
+            if (allowPartial) {
+                const dateAndMonth = dayjs(input.value, 'YYYYMM', true);
+                const yearDate = dayjs(input.value, 'YYYY', true);
+
+                dates.push(dateAndMonth, yearDate);
+            }
+
+            return dates;
+        }
+
+        function getValidTimes(allowPartial: boolean) {
+            const dates = [];
+
+            const baseDate = context.date.value ?? dayjs();
+            const baseDateFormat = baseDate.format('YYYYMMDD');
+
+            const time = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHHmm', true);
+            dates.push(time);
+
+            if (allowPartial) {
+                const hours = dayjs(`${baseDateFormat}${input.value}`, 'YYYYMMDDHH', true);
+                dates.push(hours);
+            }
+
+            return dates;
+        }
+
+        const validAndCompleteDate = computed(() => {
+            if (props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME) {
+                return getValidDates(false).find(date => date.isValid());
+            }
+
+            return null;
+        });
+
+        const anyDateIsValid = () => [
+            ...(props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME ? getValidDates(true) : []),
+            ...(props.format === DatePickerFormat.TIME ? getValidTimes(true) : []),
+            ...(props.format === DatePickerFormat.DATE_TIME ? getValidDateTimes(true) : []),
+        ].find(date => date?.isValid());
+
+        const anyDateIsValidAndComplete = () => [
+            ...(props.format === DatePickerFormat.DATE || props.format === DatePickerFormat.DATE_TIME ? getValidDates(false) : []),
+            ...(props.format === DatePickerFormat.TIME ? getValidTimes(false) : []),
+            ...(props.format === DatePickerFormat.DATE_TIME ? getValidDateTimes(false) : []),
+        ].find(date => date?.isValid());
+
+        const inputRef = context.triggerRefs.inputs[props.format];
+
+        expose({ el: inputRef, $el: inputRef });
 
         watch(context.date, () => {
             if (context.date.value && !editing.value) {
@@ -297,10 +324,26 @@ export const DatePickerInput = defineComponent({
             }
         });
 
+        watch(validAndCompleteDate, (newValid, oldValid) => {
+            if (newValid && !oldValid) {
+                const timeView = context.views.value.find(view => view.viewRole === DatePickerViewRole.TIME);
+
+                if (timeView) {
+                    context.updateView(timeView);
+
+                    const timeInput = context.triggerRefs.inputs[DatePickerFormat.TIME];
+
+                    if (timeInput.value) {
+                        timeInput.value.focus();
+                    }
+                }
+            }
+        });
+
         return () => render({
             as: props.as,
             props: {
-                ref: context.inputRef,
+                ref: inputRef,
                 type: 'text',
                 value: inputWithPlaceholder.value,
                 style: {
@@ -337,9 +380,11 @@ export const DatePickerInput = defineComponent({
                 onBlur: () => {
                     editing.value = false;
 
-                    if (dateIsValid()) {
-                        context.updateDate(dateIsValid());
-                        input.value = dateIsValid().format(inputFormat.value);
+                    const validDate = anyDateIsValid();
+
+                    if (validDate) {
+                        context.updateDate(validDate);
+                        input.value = validDate.format(inputFormat.value);
                     } else {
                         shouldStartOver.value = true;
                     }
@@ -352,7 +397,7 @@ export const DatePickerInput = defineComponent({
                     event.preventDefault();
 
                     if (event.key === 'Enter') {
-                        const validDate = dateIsValid();
+                        const validDate = anyDateIsValid();
 
                         if (validDate) {
                             context.updateDate(validDate);
@@ -388,10 +433,17 @@ export const DatePickerInput = defineComponent({
                     }
 
                     if (event.key.match(/[0-9]/) && input.value.length < 12) {
+                        const number = Number(event.key);
+
+                        // If it's a time input, a number above 2 is entered and nothing has been typed yet, add a 0 before it
+                        if (!isNaN(number) && props.format === DatePickerFormat.TIME && number > 2 && input.value.length === 0) {
+                            input.value += '0';
+                        }
+
                         input.value += event.key;
                     }
 
-                    const validAndCompleteDate = dateIsValidAndComplete();
+                    const validAndCompleteDate = anyDateIsValidAndComplete();
 
                     if (validAndCompleteDate) {
                         context.updateDate(validAndCompleteDate);
