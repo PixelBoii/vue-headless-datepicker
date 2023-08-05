@@ -99,13 +99,19 @@ const date = ref(props.date ? dayjs(props.date) : null);
                         <DatePickerCalendarItem
                             v-for="hour in hoursInCurrentDay"
                             :key="`hour-${hour.format('HH')}`"
-                            class="p-3 hover:bg-indigo-300 rounded-lg w-full"
-                            :class="{
-                                'bg-indigo-300': viewDate.isSame(hour, 'hour')
-                            }"
                             :value="hour"
+                            as="template"
+                            unit="hour"
+                            v-slot="{ selected, active }"
                         >
-                            {{ hour.format('HH') }}
+                            <button
+                                class="p-3 hover:bg-indigo-300 rounded-lg w-full"
+                                :class="{
+                                    'bg-indigo-300': selected || active,
+                                }"
+                            >
+                                {{ hour.format('HH') }}
+                            </button>
                         </DatePickerCalendarItem>
                     </div>
 
@@ -113,13 +119,19 @@ const date = ref(props.date ? dayjs(props.date) : null);
                         <DatePickerCalendarItem
                             v-for="minute in minutesInCurrentHour"
                             :key="`minute-${minute.format('mm')}`"
-                            class="py-2 px-6 hover:bg-indigo-300 rounded-lg w-full"
-                            :class="{
-                                'bg-indigo-300': viewDate.isSame(minute, 'minute')
-                            }"
                             :value="minute"
+                            as="template"
+                            unit="minute"
+                            v-slot="{ selected, active }"
                         >
-                            {{ minute.format('mm') }}
+                            <button
+                                class="py-2 px-6 hover:bg-indigo-300 rounded-lg w-full"
+                                :class="{
+                                    'bg-indigo-300': selected || active,
+                                }"
+                            >
+                                {{ minute.format('mm') }}
+                            </button>
                         </DatePickerCalendarItem>
                     </div>
                 </DatePickerView>

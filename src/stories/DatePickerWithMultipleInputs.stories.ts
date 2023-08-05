@@ -87,3 +87,26 @@ export const AddsZeroAutomatically: Story = {
         ).toHaveValue('03:40');
     },
 };
+
+export const FocusesTime: Story = {
+    play: async ({ canvasElement }: any) => {
+        const canvas = within(canvasElement);
+        const input1 = await canvas.getAllByRole('textbox')[0];
+        const input2 = await canvas.getAllByRole('textbox')[1];
+
+        // Type the date
+        await userEvent.type(input1, '2021-01-07');
+
+        // Type the time
+        await userEvent.type(input2, '12:40');
+
+        // Make sure 12 and 40 are selected
+        await expect(
+            canvas.getAllByText('12')[0],
+        ).toHaveClass('bg-indigo-300');
+
+        await expect(
+            canvas.getByText('40'),
+        ).toHaveClass('bg-indigo-300');
+    },
+};

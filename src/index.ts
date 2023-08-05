@@ -1,8 +1,8 @@
 import { onClickOutside, useEventListener } from '@vueuse/core';
-import dayjs from 'dayjs';
+import dayjs, { type OpUnitType } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 import {
-    PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onBeforeMount, provide, ref, watch, nextTick,
+    PropType, Ref, computed, defineComponent, h, inject, onBeforeUnmount, onBeforeMount, provide, ref, watch, nextTick, onMounted,
 } from 'vue';
 import { render } from './utils/render.js';
 
@@ -403,7 +403,7 @@ export const DatePickerInput = defineComponent({
                             context.updateDate(validDate);
 
                             if (context.view.value?.autoNext) {
-                                context.nextView();
+                                context.nextView(); 
                             } else {
                                 context.updateShowPanel(false);
                             }
@@ -414,15 +414,14 @@ export const DatePickerInput = defineComponent({
                         return;
                     }
 
-                    if (shouldStartOver.value || (!editing.value && event.key === 'Backspace')) {
-                        input.value = '';
-                    }
-
-                    shouldStartOver.value = false;
-                    editing.value = true;
-
                     if (event.key === 'Backspace') {
+                        if (!editing.value) {
+                            input.value = '';
+                        }
+
                         input.value = input.value.slice(0, -1);
+                        shouldStartOver.value = false;
+                        editing.value = true;
                         return;
                     }
 
@@ -433,6 +432,13 @@ export const DatePickerInput = defineComponent({
                     }
 
                     if (event.key.match(/[0-9]/) && input.value.length < 12) {
+                        if (shouldStartOver.value) {
+                            input.value = '';
+                        }
+
+                        shouldStartOver.value = false;
+                        editing.value = true;
+
                         const number = Number(event.key);
 
                         // If it's a time input, a number above 2 is entered and nothing has been typed yet, add a 0 before it
@@ -464,7 +470,7 @@ export const DatePickerPanel = defineComponent({
         }));
 
         const hoursInCurrentDay = computed(() => Array.from({ length: 24 }, (_, i) => {
-            return context.viewDate.value.startOf('day').add(i, 'hour');
+            return context.viewDate.value.startOf('day').add(i, 'hour').minute(context.date.value?.minute() ?? 0);
         }));
 
         const minutesInCurrentHour = computed(() => Array.from({ length: 60 }, (_, i) => {
@@ -503,20 +509,22 @@ export const DatePickerPanel = defineComponent({
                 event.preventDefault();
             }
 
-            if (event.key === 'ArrowLeft') {
-                adjustActive(event, -1, 'day');
-            }
+            if (context.view.value.viewRole === DatePickerViewRole.CALENDAR_MONTH) {
+                if (event.key === 'ArrowLeft') {
+                    adjustActive(event, -1, 'day');
+                }
 
-            if (event.key === 'ArrowRight') {
-                adjustActive(event, 1, 'day');
-            }
+                if (event.key === 'ArrowRight') {
+                    adjustActive(event, 1, 'day');
+                }
 
-            if (event.key === 'ArrowUp') {
-                adjustActive(event, -1, 'week');
-            }
-
-            if (event.key === 'ArrowDown') {
-                adjustActive(event, 1, 'week');
+                if (event.key === 'ArrowUp') {
+                    adjustActive(event, -1, 'week');
+                }
+    
+                if (event.key === 'ArrowDown') {
+                    adjustActive(event, 1, 'week');
+                }
             }
         });
 
@@ -543,20 +551,36 @@ export const DatePickerCalendarItem = defineComponent({
             type: [String, Object],
             default: 'button',
         },
+        unit: {
+            type: String as PropType<OpUnitType>,
+            default: 'day',
+        },
     },
     setup(props, { expose, slots }) {
         const context: DatePickerContext = inject(DatePickerContext);
 
         const itemRef: Ref<HTMLElement | null> = ref(null);
 
-        const selected = computed(() => context.date.value?.isSame(props.value, 'day') ?? false);
-        const active = computed(() => context.activeDate.value?.isSame(props.value, 'day'));
+        const selected = computed(() => context.date.value?.isSame(props.value, props.unit) ?? false);
+        const active = computed(() => context.activeDate.value?.isSame(props.value, props.unit));
+
+        function scrollIntoView() {
+            itemRef.value.scrollIntoView({
+                block: 'center',
+            });
+        }
 
         expose({ el: itemRef, $el: itemRef });
 
         watch(active, () => {
             if (active.value && itemRef.value) {
                 itemRef.value.focus();
+            }
+        });
+
+        onMounted(() => {
+            if (selected.value && itemRef.value) {
+                scrollIntoView();
             }
         });
 
